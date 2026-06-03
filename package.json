@@ -9,6 +9,9 @@
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
-    "@upstash/redis": "latest"
+    "@upstash/redis": "latest",
+    "mcp-handler": "latest",
+    "@modelcontextprotocol/sdk": "1.26.0",
+    "zod": "^3"
   }
 }
