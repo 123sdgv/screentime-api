@@ -16,17 +16,21 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ArchiveDeviceTest {
+    private suspend fun withArchive(db: Archive, block: suspend (Archive) -> Unit) {
+        try { block(db) } finally { db.close() }
+    }
+
     @Test fun repeatedDaySurvivesClosingAndReopeningDatabase() = runBlocking {
         val ctx = InstrumentationRegistry.getInstrumentation().targetContext
         val name = "test-" + UUID.randomUUID() + ".db"
         fun open() = Room.databaseBuilder(ctx, Archive::class.java, name).build()
         val row = Daily("test.synthetic", "2026-05-02", 24000, 3, "events", "UTC")
         try {
-            open().use { db ->
+            withArchive(open()) { db ->
                 db.dao().saveDays(listOf(row))
                 db.dao().saveDays(listOf(row))
             }
-            open().use { db ->
+            withArchive(open()) { db ->
                 assertEquals(listOf(row), db.dao().existing("2026-01-01", "2026-12-31"))
                 assertTrue(db.dao().priorCoverage("2026-01-01", "2026-12-31").isEmpty())
             }
@@ -44,9 +48,9 @@ class ArchiveDeviceTest {
         val restore = Regex("GET_USAGE_STATS: (allow|ignore|deny|foreground|default)").find(oldMode)
             ?.groupValues?.get(1) ?: "default"
         try {
-            Room.databaseBuilder(ctx, Archive::class.java, name).build().use { db ->
+            withArchive(Room.databaseBuilder(ctx, Archive::class.java, name).build()) { db ->
                 val collector = Collector(ctx, db)
-                assertEquals(PackageManager.PERMISSION_DENIED, ctx.checkSelfPermission(android.Manifest.permission.INTERNET))
+                assertEquals(PackageManager.PERMISSION_DENIED, ctx.packageManager.checkPermission(android.Manifest.permission.INTERNET, ctx.packageName))
                 shell("appops set " + ctx.packageName + " GET_USAGE_STATS ignore")
                 assertFalse(collector.allowed())
                 collector.refresh()
